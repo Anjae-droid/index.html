@@ -1,0 +1,859 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="theme-color" content="#16261C">
+<title>원가 계량소 · 카페 원가율 계산기</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;600;700&family=Space+Mono:wght@400;700&family=Inter:wght@400;500;600&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --paper:#EFF1EA;
+    --card:#FCFCF9;
+    --ink:#16261C;
+    --ink-soft:#33463A;
+    --muted:#6E7A6E;
+    --line:#DCDFD3;
+    --line-soft:#E7E9E0;
+    --kiwi:#4F7A34;
+    --kiwi-bright:#8DBB4C;
+    --kiwi-wash:#EAF1DF;
+    --warn:#C4402B;
+    --warn-wash:#F6E4DF;
+    --gold:#B98A2E;
+    --shadow:0 1px 2px rgba(22,38,28,.05),0 8px 24px -12px rgba(22,38,28,.18);
+    --radius:14px;
+    --safe-b:env(safe-area-inset-bottom,0px);
+    --safe-t:env(safe-area-inset-top,0px);
+    --navh:64px;
+  }
+  *{box-sizing:border-box;margin:0;padding:0;-webkit-tap-highlight-color:transparent}
+  html{-webkit-text-size-adjust:100%}
+  body{
+    font-family:'Inter',-apple-system,BlinkMacSystemFont,'Apple SD Gothic Neo','Malgun Gothic',sans-serif;
+    background:var(--paper);color:var(--ink);line-height:1.5;letter-spacing:-.01em;
+    -webkit-font-smoothing:antialiased;min-height:100vh;overscroll-behavior-y:none;
+  }
+  .num{font-family:'Space Mono',monospace;font-variant-numeric:tabular-nums;letter-spacing:-.02em}
+  .grotesk{font-family:'Space Grotesk',sans-serif}
+
+  /* ---------- shell ---------- */
+  .wrap{max-width:1080px;margin:0 auto;padding:0 16px calc(var(--navh) + var(--safe-b) + 28px)}
+  header{
+    position:sticky;top:0;z-index:40;background:rgba(239,241,234,.9);backdrop-filter:blur(12px);
+    -webkit-backdrop-filter:blur(12px);border-bottom:1px solid var(--line-soft);
+    padding:calc(var(--safe-t) + 12px) 16px 12px;
+  }
+  .headin{max-width:1080px;margin:0 auto;display:flex;align-items:center;gap:11px}
+  .mark{width:38px;height:38px;border-radius:10px;background:var(--ink);display:grid;place-items:center;flex-shrink:0}
+  .mark svg{width:24px;height:24px}
+  .brandtxt h1{font-family:'Space Grotesk',sans-serif;font-weight:700;font-size:17px;letter-spacing:-.03em;line-height:1.1}
+  .brandtxt .sub{font-size:11px;color:var(--muted);font-weight:500}
+  .spacer{flex:1}
+  .menubtn{
+    width:42px;height:42px;border-radius:10px;border:1px solid var(--line);background:var(--card);
+    display:grid;place-items:center;cursor:pointer;color:var(--ink-soft);flex-shrink:0;
+  }
+  .menubtn svg{width:20px;height:20px}
+
+  /* data menu sheet */
+  .sheet-backdrop{position:fixed;inset:0;background:rgba(22,38,28,.4);z-index:60;opacity:0;pointer-events:none;transition:opacity .25s}
+  .sheet-backdrop.open{opacity:1;pointer-events:auto}
+  .sheet{
+    position:fixed;left:0;right:0;bottom:0;z-index:61;background:var(--card);
+    border-radius:20px 20px 0 0;padding:8px 16px calc(20px + var(--safe-b));
+    transform:translateY(110%);transition:transform .3s cubic-bezier(.32,.72,0,1);box-shadow:0 -8px 40px -12px rgba(0,0,0,.3);
+  }
+  .sheet.open{transform:translateY(0)}
+  .sheet .grip{width:38px;height:4px;border-radius:2px;background:var(--line);margin:8px auto 14px}
+  .sheet h3{font-family:'Space Grotesk',sans-serif;font-size:15px;font-weight:600;margin-bottom:4px}
+  .sheet .shsub{font-size:12px;color:var(--muted);margin-bottom:14px;line-height:1.45}
+  .sheetbtn{
+    width:100%;padding:15px 16px;border:1px solid var(--line);border-radius:12px;background:var(--paper);
+    font-family:'Inter',sans-serif;font-size:14.5px;font-weight:500;color:var(--ink);cursor:pointer;
+    display:flex;align-items:center;gap:12px;margin-bottom:9px;transition:all .15s;text-align:left;
+  }
+  .sheetbtn:active{background:var(--kiwi-wash);border-color:var(--kiwi)}
+  .sheetbtn .sbi{width:38px;height:38px;border-radius:10px;background:var(--card);border:1px solid var(--line);display:grid;place-items:center;flex-shrink:0;color:var(--kiwi)}
+  .sheetbtn .sbi svg{width:18px;height:18px}
+  .sheetbtn .sbt{font-weight:600;display:block}
+  .sheetbtn .sbd{font-size:11.5px;color:var(--muted);font-weight:400;margin-top:1px}
+
+  /* ---------- threshold ---------- */
+  .metastrip{max-width:1080px;margin:16px auto 0;display:flex;align-items:center;gap:12px;flex-wrap:wrap}
+  .thresh{
+    display:flex;align-items:center;gap:10px;background:var(--card);flex:1;min-width:0;
+    border:1px solid var(--line);border-radius:12px;padding:11px 14px;box-shadow:var(--shadow);
+  }
+  .thresh label{font-size:12.5px;color:var(--muted);font-weight:600;flex:1}
+  .thresh .field{display:flex;align-items:baseline;gap:1px}
+  .thresh input{
+    width:44px;border:none;background:transparent;font-family:'Space Mono',monospace;
+    font-size:19px;font-weight:700;color:var(--warn);text-align:right;outline:none;padding:0;
+  }
+  .thresh .pct{font-family:'Space Mono',monospace;font-weight:700;color:var(--warn);font-size:16px}
+  .thresh .stepper{display:flex;gap:6px}
+  .thresh .stepper button{
+    width:38px;height:38px;border:1px solid var(--line);background:var(--paper);border-radius:9px;
+    cursor:pointer;display:grid;place-items:center;color:var(--muted);padding:0;
+  }
+  .thresh .stepper button:active{color:var(--warn);border-color:var(--warn);background:var(--warn-wash)}
+  .thresh .stepper svg{width:16px;height:16px}
+  .legend{font-size:11px;color:var(--muted);display:flex;align-items:center;gap:6px;width:100%}
+  .legend .dot{width:8px;height:8px;border-radius:50%;background:var(--warn);flex-shrink:0}
+
+  /* ---------- panels ---------- */
+  .panelhead{margin:22px 0 14px}
+  .panelhead h2{font-family:'Space Grotesk',sans-serif;font-size:19px;font-weight:700;letter-spacing:-.03em}
+  .panelhead p{font-size:12.5px;color:var(--muted);margin-top:2px}
+  .panel{display:none;animation:fade .25s ease}
+  .panel.active{display:block}
+  @keyframes fade{from{opacity:0;transform:translateY(6px)}to{opacity:1;transform:none}}
+
+  .card{background:var(--card);border:1px solid var(--line);border-radius:var(--radius);box-shadow:var(--shadow);margin-bottom:18px}
+  .card-h{padding:15px 16px 13px;border-bottom:1px solid var(--line-soft);display:flex;align-items:center;gap:10px}
+  .card-h .ico{width:30px;height:30px;border-radius:9px;background:var(--kiwi-wash);display:grid;place-items:center;flex-shrink:0}
+  .card-h .ico svg{width:16px;height:16px;color:var(--kiwi)}
+  .bean-icon{
+    display:inline-block;
+    -webkit-mask-image:url(data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAABgAAAAYCAYAAADgdz34AAAACXBIWXMAAAsTAAALEwEAmpwYAAAB10lEQVR4nN3VSaiOURgH8J+SqZtkDpEhFmQois1VVhaysTEvSLIwlbthyU6sJIWVshB1F8otFjYWppIrIRSKzDJk6rp66//V6XPHj5V/nd73+Z9nOOd9hpf/EeNxFM/wHTewC4P+hfPZeIHOLtZNjP4b54NxN84+5XkSK3A/8jUMbDTA5ji5g315P5S9MXgQbmujAdriYD1W5/1csb8MLblpQ3gVp5MwBb/wESPr9Kpkb8BFvMNn3MZejOgpwM8EqJ3wQuTDhc58tHdTBNV6hBm93WBC5FlJ9sLIS3OjzuRjU1HSZZBb3ZV0LQerCm5OnlPxNvunMDR8S7gvWIcnkasc/oGd2bzUQ/BWDAg3M43YgZXhdkTvdFcBhuNlFLYUfHO4KqGjCv5Y+OMFtzhc1f1dYk2qpzrVknAnYrS/Tvdp+Kr7a1gU7roesB0/MDfyvRgtKHQmhntTfLIKG8Of0QvmFYn8FqMhxf7acOfr7FrDV4fsM77GqClydeKr4bbV9UhHDjS2PwHa46waFdKxlfwcw8I1pZsr/qB+4kAML6fua0WwvBiEV4pBWbtpnzGu6PLa2o3p2IPX4R5jmgbRjPc9zKC2YsQ0jMk4gof4kF/q2eJT/af4DRnbmVGFw/u5AAAAAElFTkSuQmCC);
+    mask-image:url(data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAABgAAAAYCAYAAADgdz34AAAACXBIWXMAAAsTAAALEwEAmpwYAAAB10lEQVR4nN3VSaiOURgH8J+SqZtkDpEhFmQois1VVhaysTEvSLIwlbthyU6sJIWVshB1F8otFjYWppIrIRSKzDJk6rp66//V6XPHj5V/nd73+Z9nOOd9hpf/EeNxFM/wHTewC4P+hfPZeIHOLtZNjP4b54NxN84+5XkSK3A/8jUMbDTA5ji5g315P5S9MXgQbmujAdriYD1W5/1csb8MLblpQ3gVp5MwBb/wESPr9Kpkb8BFvMNn3MZejOgpwM8EqJ3wQuTDhc58tHdTBNV6hBm93WBC5FlJ9sLIS3OjzuRjU1HSZZBb3ZV0LQerCm5OnlPxNvunMDR8S7gvWIcnkasc/oGd2bzUQ/BWDAg3M43YgZXhdkTvdFcBhuNlFLYUfHO4KqGjCv5Y+OMFtzhc1f1dYk2qpzrVknAnYrS/Tvdp+Kr7a1gU7roesB0/MDfyvRgtKHQmhntTfLIKG8Of0QvmFYn8FqMhxf7acOfr7FrDV4fsM77GqClydeKr4bbV9UhHDjS2PwHa46waFdKxlfwcw8I1pZsr/qB+4kAML6fua0WwvBiEV4pBWbtpnzGu6PLa2o3p2IPX4R5jmgbRjPc9zKC2YsQ0jMk4gof4kF/q2eJT/af4DRnbmVGFw/u5AAAAAElFTkSuQmCC);
+    -webkit-mask-size:contain;
+    mask-size:contain;
+    -webkit-mask-repeat:no-repeat;
+    mask-repeat:no-repeat;
+    -webkit-mask-position:center;
+    mask-position:center;
+  }
+  .card-h h3{font-family:'Space Grotesk',sans-serif;font-size:15px;font-weight:600;letter-spacing:-.02em}
+  .card-h p{font-size:11.5px;color:var(--muted);margin-top:1px}
+  .card-h .cnt{margin-left:auto;font-family:'Space Mono',monospace;font-size:12px;background:var(--kiwi-wash);color:var(--kiwi);padding:3px 9px;border-radius:20px;font-weight:700}
+  .card-b{padding:16px}
+
+  /* ---------- forms (touch) ---------- */
+  .frow{margin-bottom:16px}
+  .frow:last-child{margin-bottom:0}
+  .frow label{display:block;font-size:12.5px;font-weight:600;color:var(--ink-soft);margin-bottom:7px}
+  .inp{
+    width:100%;border:1px solid var(--line);border-radius:11px;padding:14px;
+    font-family:'Inter',sans-serif;font-size:16px;background:var(--paper);color:var(--ink);
+    outline:none;transition:all .15s;min-height:50px;
+  }
+  .inp:focus{border-color:var(--kiwi);background:var(--card);box-shadow:0 0 0 3px var(--kiwi-wash)}
+  .inp.n{font-family:'Space Mono',monospace;font-weight:400;font-size:17px}
+  .split{display:grid;grid-template-columns:1fr 1fr;gap:11px}
+  .unitsel{display:flex;gap:7px}
+  .unitsel button{
+    flex:1;padding:13px;border:1px solid var(--line);background:var(--paper);border-radius:10px;
+    font-family:'Space Mono',monospace;font-size:15px;font-weight:700;color:var(--muted);cursor:pointer;transition:all .15s;min-height:48px;
+  }
+  .unitsel button.on{background:var(--ink);color:#fff;border-color:var(--ink)}
+  .hint{font-size:11.5px;color:var(--muted);margin-top:6px;line-height:1.45}
+
+  /* live yield readout */
+  .readout{margin-top:16px;background:var(--ink);border-radius:12px;padding:16px;color:#EBF0E5;position:relative;overflow:hidden}
+  .readout .rtitle{font-size:10.5px;letter-spacing:.14em;text-transform:uppercase;color:#8FA391;font-weight:600;margin-bottom:13px}
+  .flowrow{display:flex;align-items:center;justify-content:space-between;gap:6px}
+  .flownode{text-align:center;flex:1;min-width:0}
+  .flownode .v{font-family:'Space Mono',monospace;font-size:16px;font-weight:700;line-height:1.1;white-space:nowrap}
+  .flownode .l{font-size:9.5px;color:#8FA391;margin-top:4px}
+  .flowarr{color:#5C7360;flex-shrink:0}
+  .flowarr svg{width:15px;height:15px;display:block}
+  .flownode.hero .v{color:var(--kiwi-bright);font-size:18px}
+  .yieldbadge{position:absolute;top:14px;right:16px;font-family:'Space Mono',monospace;font-size:11px;font-weight:700;color:var(--ink);background:var(--kiwi-bright);padding:3px 9px;border-radius:20px}
+
+  .btn-primary{
+    width:100%;margin-top:18px;padding:16px;border:none;border-radius:12px;background:var(--kiwi);
+    color:#fff;font-family:'Space Grotesk',sans-serif;font-weight:600;font-size:15.5px;cursor:pointer;
+    display:flex;align-items:center;justify-content:center;gap:8px;transition:all .15s;min-height:54px;
+  }
+  .btn-primary:active{background:#436b2b;transform:scale(.99)}
+  .btn-primary svg{width:18px;height:18px}
+  .btn-ghost{background:none;border:1.5px dashed var(--line);color:var(--muted)}
+  .btn-ghost:active{border-color:var(--kiwi);color:var(--kiwi);background:var(--kiwi-wash)}
+
+  /* ---------- record cards ---------- */
+  .reclist{padding:8px}
+  .rec{
+    border:1px solid var(--line-soft);border-radius:12px;padding:14px;margin-bottom:9px;background:var(--card);
+    display:flex;align-items:center;gap:12px;transition:background .12s;
+  }
+  .rec:last-child{margin-bottom:0}
+  .rec:active{background:var(--paper)}
+  .rec .rbody{flex:1;min-width:0}
+  .rec .rname{font-weight:600;font-size:15px;display:flex;align-items:center;gap:8px;flex-wrap:wrap}
+  .rec .rmeta{font-size:12px;color:var(--muted);margin-top:4px;font-family:'Space Mono',monospace}
+  .rec .rright{text-align:right;flex-shrink:0}
+  .rec .rbig{font-family:'Space Mono',monospace;font-weight:700;font-size:16px}
+  .rec .rbiglabel{font-size:10px;color:var(--muted);margin-top:2px}
+  .rec .racts{display:flex;gap:4px;flex-shrink:0}
+  .tag{display:inline-block;font-family:'Space Mono',monospace;font-size:10.5px;font-weight:700;padding:2px 8px;border-radius:6px;background:var(--kiwi-wash);color:var(--kiwi)}
+  .iconbtn{
+    border:1px solid var(--line);background:var(--card);cursor:pointer;color:var(--muted);
+    width:40px;height:40px;border-radius:10px;display:grid;place-items:center;transition:all .15s;flex-shrink:0;
+  }
+  .iconbtn:active{background:var(--warn-wash);color:var(--warn);border-color:var(--warn)}
+  .iconbtn svg{width:17px;height:17px}
+  .iconbtn.edit:active{background:var(--kiwi-wash);color:var(--kiwi);border-color:var(--kiwi)}
+
+  .empty{text-align:center;padding:44px 20px;color:var(--muted)}
+  .empty svg{width:36px;height:36px;opacity:.4;margin-bottom:12px}
+  .empty .big{font-family:'Space Grotesk',sans-serif;font-weight:600;font-size:15px;color:var(--ink-soft);margin-bottom:3px}
+  .empty p{font-size:13px}
+
+  /* ---------- menu builder ---------- */
+  .itemrow{
+    border:1px solid var(--line-soft);border-radius:11px;padding:9px;margin-bottom:9px;background:var(--paper);
+  }
+  .itemrow .row2{display:grid;grid-template-columns:1fr 66px 40px;gap:6px;align-items:center;margin-top:7px}
+  .itemrow select,.itemrow input{
+    border:1px solid var(--line);border-radius:9px;padding:11px 10px;font-size:15px;background:var(--card);
+    font-family:'Inter',sans-serif;outline:none;width:100%;color:var(--ink);min-height:44px;
+  }
+  .itemrow input.item-amt{font-family:'Space Mono',monospace;font-weight:700;text-align:right;font-size:14.5px;padding:11px 8px}
+  .itemrow select.item-unit{font-family:'Space Mono',monospace;font-weight:700;font-size:13px;padding:11px 4px;text-align:center}
+  .itemrow select:focus,.itemrow input:focus{border-color:var(--kiwi);background:var(--card)}
+  .itemrow .rm{
+    border:1px solid var(--line);background:var(--card);border-radius:9px;cursor:pointer;color:var(--muted);
+    height:44px;display:grid;place-items:center;
+  }
+  .itemrow .rm:active{background:var(--warn-wash);color:var(--warn);border-color:var(--warn)}
+  .itemrow .rm svg{width:16px;height:16px}
+
+  /* result readout */
+  .result{background:var(--ink);border-radius:var(--radius);padding:20px;color:#EBF0E5;box-shadow:var(--shadow);margin-bottom:18px}
+  .result .rname{font-family:'Space Grotesk',sans-serif;font-size:17px;font-weight:600;margin-bottom:2px}
+  .result .rsub{font-size:12px;color:#8FA391}
+  .bigrates{display:grid;grid-template-columns:1fr 1fr;gap:14px;margin:20px 0}
+  .rateblock .rlabel{font-size:10.5px;letter-spacing:.08em;text-transform:uppercase;color:#8FA391;font-weight:600;margin-bottom:5px}
+  .rateblock .rval{font-family:'Space Mono',monospace;font-size:36px;font-weight:700;line-height:1}
+  .rateblock .rval.cost{color:var(--kiwi-bright)}
+  .rateblock .rval.cost.over{color:#F0876F}
+  .costbar{height:14px;border-radius:20px;background:#2A3B30;overflow:hidden;display:flex;margin:4px 0 16px}
+  .costbar .seg{height:100%;transition:width .4s ease}
+  .breakdown{border-top:1px solid #2A3B30;padding-top:14px}
+  .bkrow{display:flex;justify-content:space-between;align-items:center;padding:6px 0;font-size:13px}
+  .bkrow .bkl{display:flex;align-items:center;gap:8px;color:#C4D0BF;min-width:0}
+  .bkrow .swatch{width:10px;height:10px;border-radius:3px;flex-shrink:0}
+  .bkrow .bkv{font-family:'Space Mono',monospace;font-weight:700;flex-shrink:0}
+  .bkrow.total{border-top:1px solid #2A3B30;margin-top:6px;padding-top:12px;font-size:14.5px;color:#fff;font-weight:600}
+  .warnpill{margin-top:15px;background:var(--warn-wash);color:var(--warn);border-radius:10px;padding:11px 13px;font-size:12.5px;font-weight:600;display:flex;gap:9px;align-items:flex-start;line-height:1.4}
+  .warnpill svg{width:16px;height:16px;flex-shrink:0;margin-top:1px}
+
+  /* ---------- dashboard ---------- */
+  .dashsum{display:grid;grid-template-columns:1fr 1fr;gap:11px;margin-bottom:18px}
+  .stat{background:var(--card);border:1px solid var(--line);border-radius:12px;padding:14px 15px;box-shadow:var(--shadow)}
+  .stat .sl{font-size:11px;color:var(--muted);font-weight:600;margin-bottom:8px}
+  .stat .sv{font-family:'Space Mono',monospace;font-size:24px;font-weight:700;line-height:1;color:var(--ink)}
+  .stat .sv.warn{color:var(--warn)}
+  .stat .sv.good{color:var(--kiwi)}
+  .stat .su{font-size:12px;color:var(--muted);font-weight:400;margin-left:2px}
+  .sortbtns{display:flex;gap:7px;overflow-x:auto;margin-bottom:14px;padding-bottom:2px}
+  .sortbtn{
+    font-family:'Space Grotesk',sans-serif;font-size:12.5px;font-weight:500;padding:9px 14px;border-radius:9px;
+    border:1px solid var(--line);background:var(--card);color:var(--muted);cursor:pointer;transition:all .15s;white-space:nowrap;flex-shrink:0;min-height:40px;
+  }
+  .sortbtn.on{background:var(--ink);color:#fff;border-color:var(--ink)}
+  .drec{border:1px solid var(--line-soft);border-radius:12px;padding:14px;margin-bottom:10px;background:var(--card)}
+  .drec.over{border-color:var(--warn);background:var(--warn-wash)}
+  .drec .dtop{display:flex;justify-content:space-between;align-items:baseline;gap:10px;margin-bottom:11px}
+  .drec .dname{font-weight:600;font-size:15px;display:flex;align-items:center;gap:7px}
+  .drec .drate{font-family:'Space Mono',monospace;font-weight:700;font-size:19px;color:var(--kiwi)}
+  .drec.over .drate{color:var(--warn)}
+  .ratebar{height:9px;background:var(--line-soft);border-radius:20px;overflow:hidden;position:relative;margin-bottom:11px}
+  .drec.over .ratebar{background:#EBD2CC}
+  .ratebar .fill{height:100%;border-radius:20px;transition:width .5s;background:var(--kiwi)}
+  .drec.over .ratebar .fill{background:var(--warn)}
+  .ratebar .mark{position:absolute;top:-2px;bottom:-2px;width:2px;background:var(--ink);opacity:.4}
+  .dgrid{display:grid;grid-template-columns:1fr 1fr 1fr;gap:8px}
+  .dcell{text-align:center;background:var(--paper);border-radius:9px;padding:9px 6px}
+  .drec.over .dcell{background:rgba(255,255,255,.5)}
+  .dcell .dcl{font-size:9.5px;color:var(--muted);font-weight:600;margin-bottom:3px}
+  .dcell .dcv{font-family:'Space Mono',monospace;font-weight:700;font-size:13px}
+  .warnicon{color:var(--warn);display:inline-grid;place-items:center}
+  .warnicon svg{width:16px;height:16px}
+
+  /* ---------- bottom nav ---------- */
+  .botnav{
+    position:fixed;left:0;right:0;bottom:0;z-index:50;background:rgba(252,252,249,.94);
+    backdrop-filter:blur(14px);-webkit-backdrop-filter:blur(14px);border-top:1px solid var(--line);
+    display:flex;padding:8px 8px calc(8px + var(--safe-b));height:calc(var(--navh) + var(--safe-b));
+  }
+  .navbtn{
+    flex:1;background:none;border:none;cursor:pointer;display:flex;flex-direction:column;align-items:center;
+    justify-content:center;gap:3px;color:var(--muted);border-radius:12px;transition:all .15s;padding:6px 0;
+  }
+  .navbtn svg{width:25px;height:25px;stroke-width:2}
+  .navbtn span{font-family:'Space Grotesk',sans-serif;font-size:11.6px;font-weight:600;letter-spacing:-.02em}
+  .navbtn.active{color:var(--kiwi)}
+  .navbtn.active svg{color:var(--kiwi)}
+
+  /* toast */
+  #toast{
+    position:fixed;bottom:calc(var(--navh) + var(--safe-b) + 16px);left:50%;transform:translateX(-50%) translateY(20px);
+    background:var(--ink);color:#fff;padding:13px 20px;border-radius:12px;font-size:13.5px;font-weight:500;
+    box-shadow:0 12px 32px -8px rgba(0,0,0,.4);opacity:0;pointer-events:none;transition:all .3s;z-index:80;
+    display:flex;align-items:center;gap:9px;max-width:90vw;
+  }
+  #toast.show{opacity:1;transform:translateX(-50%) translateY(0)}
+  #toast svg{width:17px;height:17px;color:var(--kiwi-bright);flex-shrink:0}
+
+  /* desktop enhancements */
+  @media(min-width:760px){
+    :root{--navh:0px}
+    .botnav{display:none}
+    .wrap{padding-bottom:60px}
+    .menubtn{display:none}
+    .grid2{display:grid;grid-template-columns:minmax(0,380px) 1fr;gap:22px;align-items:start}
+    .grid2 .card{margin-bottom:0}
+    .dashsum{grid-template-columns:repeat(4,1fr)}
+    #toast{bottom:24px}
+    .headtools{display:flex}
+    .desktop-tabs{display:flex}
+  }
+  @media(max-width:759px){
+    .desktop-tabs{display:none}
+  }
+  .desktop-tabs{display:none;gap:4px;margin:22px 0 4px;border-bottom:1px solid var(--line)}
+  .dtab{font-family:'Space Grotesk',sans-serif;font-weight:600;font-size:14.5px;padding:12px 16px 14px;color:var(--muted);cursor:pointer;background:none;border:none;position:relative}
+  .dtab.active{color:var(--ink)}
+  .dtab.active::after{content:"";position:absolute;left:8px;right:8px;bottom:-1px;height:2.5px;background:var(--kiwi);border-radius:2px}
+  .headtools{display:none;gap:8px;margin-left:auto}
+  .tbtn{font-family:'Space Grotesk',sans-serif;font-weight:500;font-size:12.5px;padding:9px 13px;border-radius:9px;border:1px solid var(--line);background:var(--card);color:var(--ink-soft);cursor:pointer;display:inline-flex;align-items:center;gap:6px}
+  .tbtn:hover{border-color:var(--kiwi);color:var(--kiwi)}
+  .tbtn svg{width:14px;height:14px}
+</style>
+</head>
+<body>
+
+<header>
+  <div class="headin">
+    <div class="brandtxt">
+      <h1>원가 계량소</h1>
+      <div class="sub">카페 원가율 계산기</div>
+    </div>
+    <div class="spacer"></div>
+    <div class="headtools">
+      <button class="tbtn" onclick="exportJSON()"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>저장</button>
+      <button class="tbtn" onclick="exportCSV()"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/></svg>엑셀</button>
+      <button class="tbtn" onclick="document.getElementById('importFile').click()"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg>불러오기</button>
+    </div>
+    <button class="menubtn" onclick="openSheet()"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 12h16"/><path d="M4 6h16"/><path d="M4 18h16"/></svg></button>
+    <input type="file" id="importFile" accept="application/json" style="display:none" onchange="importJSON(event)">
+  </div>
+
+  <div class="metastrip">
+    <div class="thresh">
+      <label>원가율 경고선</label>
+      <div class="field">
+        <input type="number" id="threshInput" inputmode="numeric" value="35" min="1" max="99" oninput="setThreshold(this.value)">
+        <span class="pct">%</span>
+      </div>
+      <div class="stepper">
+        <button onclick="bumpThreshold(-1)"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><line x1="5" y1="12" x2="19" y2="12"/></svg></button>
+        <button onclick="bumpThreshold(1)"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg></button>
+      </div>
+    </div>
+    <div class="legend"><span class="dot"></span>이 값을 넘는 메뉴는 빨간색으로 강조됩니다</div>
+  </div>
+
+  <div class="desktop-tabs">
+    <button class="dtab active" data-tab="ingredients" onclick="switchTab('ingredients')">재료 관리</button>
+    <button class="dtab" data-tab="menus" onclick="switchTab('menus')">메뉴 원가</button>
+    <button class="dtab" data-tab="dash" onclick="switchTab('dash')">대시보드</button>
+  </div>
+</header>
+
+<div class="wrap">
+
+  <!-- ============ 재료 관리 ============ -->
+  <section class="panel active" id="panel-ingredients">
+    <div class="panelhead"><h2>재료 관리</h2><p>손질 후 실사용량으로 단가를 잡습니다</p></div>
+    <div class="grid2">
+      <div class="card">
+        <div class="card-h">
+          <div class="ico"><span class="bean-icon" style="width:16px;height:16px;background-color:var(--kiwi)"></span></div>
+          <div><h3 id="ingFormTitle">재료 등록</h3><p>실단가를 자동 계산합니다</p></div>
+        </div>
+        <div class="card-b">
+          <div class="frow"><label>재료명</label><input class="inp" id="ingName" placeholder="예: 키위"></div>
+          <div class="frow">
+            <label>단위</label>
+            <select class="inp" id="unitSelect" onchange="pickUnit(this.value)">
+              <option value="g">g (그램)</option>
+              <option value="kg">kg (킬로그램)</option>
+              <option value="ml">ml (밀리리터)</option>
+              <option value="L">L (리터)</option>
+              <option value="oz">oz (온스)</option>
+              <option value="개">개 (낱개)</option>
+            </select>
+          </div>
+          <div class="frow">
+            <label>구매 정보</label>
+            <div class="split">
+              <div><input class="inp n" id="ingBuyAmt" inputmode="decimal" placeholder="예: 840" oninput="updateReadout()"><div class="hint">구매량 (<span class="uref">g</span>)</div></div>
+              <div><input class="inp n" id="ingBuyPrice" inputmode="decimal" placeholder="예: 5560" oninput="updateReadout()"><div class="hint">구매가격 (원)</div></div>
+            </div>
+          </div>
+          <div class="frow">
+            <label>손질 후 실사용량 (가식부)</label>
+            <input class="inp n" id="ingNetAmt" inputmode="decimal" placeholder="예: 540" oninput="updateReadout()">
+            <div class="hint">껍질·씨·꼭지 제거 후 실제 쓸 수 있는 양. 손실이 없으면 비워두세요(구매량과 동일 처리).</div>
+          </div>
+          <div class="readout" id="ingReadout" style="display:none">
+            <div class="yieldbadge" id="roYield">수율 —</div>
+            <div class="rtitle">실단가 산출</div>
+            <div class="flowrow">
+              <div class="flownode"><div class="v num" id="roBuy">—</div><div class="l">구매량</div></div>
+              <div class="flowarr"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="5" y1="12" x2="19" y2="12"/><polyline points="12 5 19 12 12 19"/></svg></div>
+              <div class="flownode"><div class="v num" id="roNet">—</div><div class="l">가식부</div></div>
+              <div class="flowarr"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="5" y1="12" x2="19" y2="12"/><polyline points="12 5 19 12 12 19"/></svg></div>
+              <div class="flownode hero"><div class="v num" id="roUnit">—</div><div class="l">실단가</div></div>
+            </div>
+          </div>
+          <button class="btn-primary" id="ingSaveBtn" onclick="saveIngredient()"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>재료 추가</button>
+          <button class="btn-primary btn-ghost" id="ingCancelBtn" onclick="cancelEditIngredient()" style="display:none;margin-top:9px">편집 취소</button>
+        </div>
+      </div>
+      <div class="card">
+        <div class="card-h">
+          <div class="ico"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="8" y1="6" x2="21" y2="6"/><line x1="8" y1="12" x2="21" y2="12"/><line x1="8" y1="18" x2="21" y2="18"/><line x1="3" y1="6" x2="3.01" y2="6"/><line x1="3" y1="12" x2="3.01" y2="12"/><line x1="3" y1="18" x2="3.01" y2="18"/></svg></div>
+          <div><h3>재료 목록</h3><p>실사용 단가 기준</p></div>
+          <span class="cnt" id="cnt-ing">0</span>
+        </div>
+        <div id="ingListWrap"></div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ============ 메뉴 원가 ============ -->
+  <section class="panel" id="panel-menus">
+    <div class="panelhead"><h2>메뉴 원가</h2><p>재료를 조합해 원가율을 계산합니다</p></div>
+    <div class="grid2">
+      <div class="card">
+        <div class="card-h">
+          <div class="ico"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M18 8h1a4 4 0 0 1 0 8h-1"/><path d="M2 8h16v9a4 4 0 0 1-4 4H6a4 4 0 0 1-4-4V8z"/><line x1="6" y1="1" x2="6" y2="4"/><line x1="10" y1="1" x2="10" y2="4"/><line x1="14" y1="1" x2="14" y2="4"/></svg></div>
+          <div><h3 id="menuFormTitle">메뉴 구성</h3><p>재료·판매가 입력</p></div>
+        </div>
+        <div class="card-b">
+          <div class="frow"><label>메뉴명</label><input class="inp" id="menuName" placeholder="예: 키위주스"></div>
+          <div class="frow"><label>판매가 (원)</label><input class="inp n" id="menuPrice" inputmode="decimal" placeholder="예: 6500" oninput="renderMenuResult()"></div>
+          <div class="frow">
+            <label>사용 재료</label>
+            <div id="itemRows"></div>
+            <button class="btn-primary btn-ghost" onclick="addItemRow()" style="margin-top:5px"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>재료 추가</button>
+          </div>
+          <button class="btn-primary" id="menuSaveBtn" onclick="saveMenu()"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg>메뉴 저장</button>
+          <button class="btn-primary btn-ghost" id="menuCancelBtn" onclick="cancelEditMenu()" style="display:none;margin-top:9px">편집 취소</button>
+        </div>
+      </div>
+      <div>
+        <div id="menuResultWrap"></div>
+        <div class="card">
+          <div class="card-h">
+            <div class="ico"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M18 8h1a4 4 0 0 1 0 8h-1"/><path d="M2 8h16v9a4 4 0 0 1-4 4H6a4 4 0 0 1-4-4V8z"/></svg></div>
+            <div><h3>저장된 메뉴</h3><p>탭하면 편집</p></div>
+            <span class="cnt" id="cnt-menu">0</span>
+          </div>
+          <div id="menuListWrap"></div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ============ 대시보드 ============ -->
+  <section class="panel" id="panel-dash">
+    <div class="panelhead"><h2>전체 대시보드</h2><p>경고선을 넘는 메뉴를 한눈에</p></div>
+    <div class="dashsum" id="dashSum"></div>
+    <div class="sortbtns">
+      <button class="sortbtn on" data-sort="cost" onclick="setSort('cost')">원가율 높은순</button>
+      <button class="sortbtn" data-sort="margin" onclick="setSort('margin')">마진 높은순</button>
+      <button class="sortbtn" data-sort="name" onclick="setSort('name')">이름순</button>
+    </div>
+    <div id="dashListWrap"></div>
+  </section>
+</div>
+
+<!-- bottom nav (mobile) -->
+<nav class="botnav">
+  <button class="navbtn active" data-tab="ingredients" onclick="switchTab('ingredients')">
+    <span class="bean-icon" style="width:25px;height:25px;background-color:currentColor"></span>
+    <span>재료</span>
+  </button>
+  <button class="navbtn" data-tab="menus" onclick="switchTab('menus')">
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round"><path d="M18 8h1a4 4 0 0 1 0 8h-1"/><path d="M2 8h16v9a4 4 0 0 1-4 4H6a4 4 0 0 1-4-4V8z"/><line x1="6" y1="1" x2="6" y2="4"/><line x1="10" y1="1" x2="10" y2="4"/></svg>
+    <span>메뉴</span>
+  </button>
+  <button class="navbtn" data-tab="dash" onclick="switchTab('dash')">
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="20" x2="18" y2="10"/><line x1="12" y1="20" x2="12" y2="4"/><line x1="6" y1="20" x2="6" y2="14"/></svg>
+    <span>대시보드</span>
+  </button>
+</nav>
+
+<!-- data sheet (mobile) -->
+<div class="sheet-backdrop" id="sheetBackdrop" onclick="closeSheet()"></div>
+<div class="sheet" id="dataSheet">
+  <div class="grip"></div>
+  <h3>데이터 관리</h3>
+  <p class="shsub">입력한 내용은 창을 닫거나 새로고침하면 사라집니다. 계속 쓰실 내용은 저장해두었다가 다음에 불러오기로 이어가세요.</p>
+  <button class="sheetbtn" onclick="closeSheet();exportJSON()">
+    <span class="sbi"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg></span>
+    <span><span class="sbt">저장</span><span class="sbd">전체 백업 파일 만들기 · 나중에 불러오기로 복원</span></span>
+  </button>
+  <button class="sheetbtn" onclick="closeSheet();exportCSV()">
+    <span class="sbi"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/></svg></span>
+    <span><span class="sbt">엑셀 내보내기</span><span class="sbd">엑셀·구글시트에서 열어보기</span></span>
+  </button>
+  <button class="sheetbtn" onclick="closeSheet();document.getElementById('importFile').click()">
+    <span class="sbi"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg></span>
+    <span><span class="sbt">불러오기</span><span class="sbd">저장해둔 JSON 파일 복원</span></span>
+  </button>
+</div>
+
+<div id="toast"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg><span id="toastMsg"></span></div>
+
+<script>
+/* ============ STATE ============ */
+let state = { threshold:35, unit:'g', ingredients:[], menus:[], editingIngredientId:null, editingMenuId:null, sort:'cost' };
+let uid = () => Math.random().toString(36).slice(2,9);
+
+/* ============ HELPERS ============ */
+const won = n => Math.round(n).toLocaleString('ko-KR');
+const pct = n => (n*100).toFixed(1);
+function unitCost(ing){ const net = ing.netAmt>0?ing.netAmt:ing.buyAmt; return net>0?ing.buyPrice/net:0; }
+function yieldOf(ing){ return ing.buyAmt>0?(ing.netAmt>0?ing.netAmt:ing.buyAmt)/ing.buyAmt:1; }
+
+/* ---- 단위 그룹 및 환산 ---- */
+const UNIT_GROUPS = { weight:['g','kg','oz'], volume:['ml','L'], count:['개'] };
+const UNIT_TO_BASE = { g:1, kg:1000, oz:28.35, ml:1, L:1000, '개':1 };
+function unitGroup(u){
+  if(UNIT_GROUPS.weight.includes(u)) return 'weight';
+  if(UNIT_GROUPS.volume.includes(u)) return 'volume';
+  return 'count';
+}
+function convertAmount(amount, fromUnit, toUnit){
+  if(!fromUnit || !toUnit || fromUnit===toUnit) return amount;
+  if(unitGroup(fromUnit)!==unitGroup(toUnit)) return amount; // 계열이 다르면 변환하지 않음
+  return amount * UNIT_TO_BASE[fromUnit] / UNIT_TO_BASE[toUnit];
+}
+function unitOptionsForIngredient(ingredientId, selectedUnit){
+  const ing = state.ingredients.find(i=>i.id===ingredientId);
+  const group = ing ? unitGroup(ing.unit) : 'weight';
+  const units = UNIT_GROUPS[group];
+  const def = selectedUnit || (ing ? ing.unit : units[0]);
+  return units.map(u=>`<option value="${u}" ${u===def?'selected':''}>${u}</option>`).join('');
+}
+
+function menuCost(menu){
+  return menu.items.reduce((s,it)=>{
+    const ing=state.ingredients.find(i=>i.id===it.ingredientId);
+    if(!ing) return s;
+    const amtInIngUnit = convertAmount(it.amount, it.unit||ing.unit, ing.unit);
+    return s + unitCost(ing)*amtInIngUnit;
+  },0);
+}
+function menuRate(menu){ const c=menuCost(menu); return menu.price>0?c/menu.price:0; }
+function toast(msg){ document.getElementById('toastMsg').textContent=msg; const t=document.getElementById('toast'); t.classList.add('show'); clearTimeout(t._t); t._t=setTimeout(()=>t.classList.remove('show'),2200); }
+function esc(s){ return String(s).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c])); }
+
+/* ============ SHEET ============ */
+function openSheet(){ document.getElementById('sheetBackdrop').classList.add('open'); document.getElementById('dataSheet').classList.add('open'); }
+function closeSheet(){ document.getElementById('sheetBackdrop').classList.remove('open'); document.getElementById('dataSheet').classList.remove('open'); }
+
+/* ============ TABS ============ */
+function switchTab(tab){
+  document.querySelectorAll('.dtab,.navbtn').forEach(b=>b.classList.toggle('active',b.dataset.tab===tab));
+  document.querySelectorAll('.panel').forEach(p=>p.classList.toggle('active',p.id==='panel-'+tab));
+  if(tab==='dash') renderDash();
+  if(tab==='menus') renderMenuResult();
+  window.scrollTo({top:0,behavior:'smooth'});
+}
+
+/* ============ THRESHOLD ============ */
+function setThreshold(v){ state.threshold=Math.max(1,Math.min(99,parseInt(v)||35)); renderDash(); renderMenuResult(); }
+function bumpThreshold(d){ state.threshold=Math.max(1,Math.min(99,state.threshold+d)); document.getElementById('threshInput').value=state.threshold; renderDash(); renderMenuResult(); }
+
+/* ============ INGREDIENTS ============ */
+function pickUnit(u){
+  state.unit=u;
+  const sel=document.getElementById('unitSelect');
+  if(sel) sel.value=u;
+  document.querySelectorAll('.uref').forEach(e=>e.textContent=u);
+  updateReadout();
+}
+function updateReadout(){
+  const buy=parseFloat(document.getElementById('ingBuyAmt').value)||0;
+  const price=parseFloat(document.getElementById('ingBuyPrice').value)||0;
+  const netRaw=document.getElementById('ingNetAmt').value;
+  const net=netRaw===''?buy:(parseFloat(netRaw)||0);
+  const ro=document.getElementById('ingReadout');
+  if(buy<=0||price<=0){ ro.style.display='none'; return; }
+  ro.style.display='block';
+  const uc=net>0?price/net:0, y=net/buy;
+  document.getElementById('roBuy').textContent=won(buy)+state.unit;
+  document.getElementById('roNet').textContent=won(net)+state.unit;
+  document.getElementById('roUnit').textContent=uc.toFixed(2);
+  document.getElementById('roYield').textContent='수율 '+(y*100).toFixed(1)+'%';
+}
+function saveIngredient(){
+  const name=document.getElementById('ingName').value.trim();
+  const buyAmt=parseFloat(document.getElementById('ingBuyAmt').value)||0;
+  const buyPrice=parseFloat(document.getElementById('ingBuyPrice').value)||0;
+  const netRaw=document.getElementById('ingNetAmt').value;
+  const netAmt=netRaw===''?buyAmt:(parseFloat(netRaw)||0);
+  if(!name){ toast('재료명을 입력하세요'); return; }
+  if(buyAmt<=0||buyPrice<=0){ toast('구매량과 가격을 입력하세요'); return; }
+  if(state.editingIngredientId){
+    const ing=state.ingredients.find(i=>i.id===state.editingIngredientId);
+    Object.assign(ing,{name,unit:state.unit,buyAmt,buyPrice,netAmt});
+    toast('재료를 수정했습니다'); cancelEditIngredient();
+  } else {
+    state.ingredients.push({id:uid(),name,unit:state.unit,buyAmt,buyPrice,netAmt});
+    toast(name+' 추가됨'); clearIngForm();
+  }
+  renderIngredients(); refreshItemSelects();
+}
+function clearIngForm(){ ['ingName','ingBuyAmt','ingBuyPrice','ingNetAmt'].forEach(id=>document.getElementById(id).value=''); document.getElementById('ingReadout').style.display='none'; }
+function editIngredient(id){
+  const ing=state.ingredients.find(i=>i.id===id);
+  state.editingIngredientId=id;
+  document.getElementById('ingName').value=ing.name;
+  document.getElementById('ingBuyAmt').value=ing.buyAmt;
+  document.getElementById('ingBuyPrice').value=ing.buyPrice;
+  document.getElementById('ingNetAmt').value=ing.netAmt;
+  pickUnit(ing.unit);
+  document.getElementById('ingFormTitle').textContent='재료 수정';
+  document.getElementById('ingSaveBtn').innerHTML='<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg>변경사항 저장';
+  document.getElementById('ingCancelBtn').style.display='flex';
+  updateReadout();
+  window.scrollTo({top:0,behavior:'smooth'});
+}
+function cancelEditIngredient(){
+  state.editingIngredientId=null; clearIngForm();
+  document.getElementById('ingFormTitle').textContent='재료 등록';
+  document.getElementById('ingSaveBtn').innerHTML='<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>재료 추가';
+  document.getElementById('ingCancelBtn').style.display='none';
+}
+function deleteIngredient(id){
+  const used=state.menus.some(m=>m.items.some(it=>it.ingredientId===id));
+  if(used && !confirm('이 재료를 쓰는 메뉴가 있습니다. 그래도 삭제할까요?')) return;
+  state.ingredients=state.ingredients.filter(i=>i.id!==id);
+  state.menus.forEach(m=>m.items=m.items.filter(it=>it.ingredientId!==id));
+  renderIngredients(); refreshItemSelects(); renderDash(); toast('재료를 삭제했습니다');
+}
+function renderIngredients(){
+  document.getElementById('cnt-ing').textContent=state.ingredients.length;
+  const wrap=document.getElementById('ingListWrap');
+  if(!state.ingredients.length){ wrap.innerHTML=emptyBlock('circle','등록된 재료가 없습니다','위에서 첫 재료를 추가해보세요'); return; }
+  wrap.innerHTML='<div class="reclist">'+state.ingredients.map(ing=>{
+    const uc=unitCost(ing), y=yieldOf(ing);
+    const yieldTag=y<1?`<span class="tag">수율 ${pct(y)}%</span>`:`<span style="color:var(--muted);font-size:11px">손실 없음</span>`;
+    return `<div class="rec">
+      <div class="rbody">
+        <div class="rname">${esc(ing.name)} ${yieldTag}</div>
+        <div class="rmeta">구매 ${won(ing.buyAmt)}${ing.unit} / ${won(ing.buyPrice)}원</div>
+      </div>
+      <div class="rright">
+        <div class="rbig" style="color:var(--kiwi)">${uc.toFixed(2)}</div>
+        <div class="rbiglabel">원/${ing.unit}</div>
+      </div>
+      <div class="racts">
+        <button class="iconbtn edit" onclick="editIngredient('${ing.id}')"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.12 2.12 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg></button>
+        <button class="iconbtn" onclick="deleteIngredient('${ing.id}')"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/></svg></button>
+      </div>
+    </div>`;
+  }).join('')+'</div>';
+}
+
+/* ============ MENUS ============ */
+function optionsHTML(selectedId){
+  let o='<option value="">재료 선택…</option>';
+  state.ingredients.forEach(ing=>{ o+=`<option value="${ing.id}" ${ing.id===selectedId?'selected':''}>${esc(ing.name)} (${unitCost(ing).toFixed(2)}원/${ing.unit})</option>`; });
+  return o;
+}
+function addItemRow(ingredientId='',amount='',unit=''){
+  const rows=document.getElementById('itemRows');
+  const div=document.createElement('div'); div.className='itemrow';
+  div.innerHTML=`<select class="item-ing" onchange="onIngredientRowChange(this)">${optionsHTML(ingredientId)}</select>
+    <div class="row2">
+      <input class="item-amt" type="number" inputmode="decimal" placeholder="사용량" value="${amount}" oninput="renderMenuResult()">
+      <select class="item-unit" onchange="renderMenuResult()">${unitOptionsForIngredient(ingredientId,unit)}</select>
+      <button class="rm" onclick="this.closest('.itemrow').remove();renderMenuResult()"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="5" y1="12" x2="19" y2="12"/></svg></button>
+    </div>`;
+  rows.appendChild(div); renderMenuResult();
+}
+function onIngredientRowChange(selectEl){
+  const row = selectEl.closest('.itemrow');
+  const unitSel = row.querySelector('.item-unit');
+  unitSel.innerHTML = unitOptionsForIngredient(selectEl.value, '');
+  renderMenuResult();
+}
+function refreshItemSelects(){
+  document.querySelectorAll('#itemRows .itemrow').forEach(row=>{
+    const ingSel=row.querySelector('.item-ing');
+    const unitSel=row.querySelector('.item-unit');
+    const curIng=ingSel.value, curUnit=unitSel.value;
+    ingSel.innerHTML=optionsHTML(curIng);
+    unitSel.innerHTML=unitOptionsForIngredient(curIng,curUnit);
+  });
+}
+function collectItems(){
+  const items=[];
+  document.querySelectorAll('#itemRows .itemrow').forEach(row=>{
+    const id=row.querySelector('.item-ing').value;
+    const amt=parseFloat(row.querySelector('.item-amt').value)||0;
+    const unit=row.querySelector('.item-unit').value;
+    if(id&&amt>0) items.push({ingredientId:id,amount:amt,unit});
+  });
+  return items;
+}
+function renderMenuResult(){
+  const name=document.getElementById('menuName').value.trim()||'새 메뉴';
+  const price=parseFloat(document.getElementById('menuPrice').value)||0;
+  const items=collectItems();
+  const wrap=document.getElementById('menuResultWrap');
+  if(!items.length||price<=0){ wrap.innerHTML=`<div class="result"><div class="rname">${esc(name)}</div><div class="rsub">판매가와 재료를 입력하면 원가율이 계산됩니다</div></div>`; return; }
+  const palette=['#8DBB4C','#4F7A34','#B98A2E','#6E9AA8','#A8746E','#7C8A5C'];
+  let cost=0; const parts=[];
+  items.forEach((it,idx)=>{ const ing=state.ingredients.find(i=>i.id===it.ingredientId); if(!ing)return; const amtInIngUnit=convertAmount(it.amount,it.unit||ing.unit,ing.unit); const c=unitCost(ing)*amtInIngUnit; cost+=c; parts.push({name:ing.name,amount:it.amount,unit:it.unit||ing.unit,cost:c,color:palette[idx%palette.length]}); });
+  const rate=price>0?cost/price:0, margin=1-rate, over=rate*100>state.threshold;
+  let segs=parts.map(p=>`<div class="seg" style="width:${p.cost/price*100}%;background:${p.color}"></div>`).join('')+`<div class="seg" style="width:${margin*100}%;background:#2A3B30"></div>`;
+  let bk=parts.map(p=>`<div class="bkrow"><div class="bkl"><span class="swatch" style="background:${p.color}"></span>${esc(p.name)} <span style="color:#6E7A6E">${won(p.amount)}${p.unit}</span></div><div class="bkv">${won(p.cost)}원</div></div>`).join('');
+  wrap.innerHTML=`<div class="result">
+    <div class="rname">${esc(name)}</div>
+    <div class="rsub">판매가 ${won(price)}원 · 재료 ${parts.length}종</div>
+    <div class="bigrates">
+      <div class="rateblock"><div class="rlabel">원가율</div><div class="rval cost ${over?'over':''}">${pct(rate)}<span style="font-size:20px">%</span></div></div>
+      <div class="rateblock"><div class="rlabel">마진율</div><div class="rval margin">${pct(margin)}<span style="font-size:20px">%</span></div></div>
+    </div>
+    <div class="costbar">${segs}</div>
+    <div class="breakdown">${bk}
+      <div class="bkrow total"><div class="bkl">총 재료원가</div><div class="bkv">${won(cost)}원</div></div>
+      <div class="bkrow"><div class="bkl" style="color:#8FA391">매출총이익</div><div class="bkv" style="color:var(--kiwi-bright)">${won(price-cost)}원</div></div>
+    </div>
+    ${over?`<div class="warnpill"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M10.29 3.86 1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>경고선(${state.threshold}%)을 넘었습니다. 가격 인상 또는 사용량 조정을 검토하세요.</div>`:''}
+  </div>`;
+}
+function saveMenu(){
+  const name=document.getElementById('menuName').value.trim();
+  const price=parseFloat(document.getElementById('menuPrice').value)||0;
+  const items=collectItems();
+  if(!name){ toast('메뉴명을 입력하세요'); return; }
+  if(price<=0){ toast('판매가를 입력하세요'); return; }
+  if(!items.length){ toast('재료를 하나 이상 추가하세요'); return; }
+  if(state.editingMenuId){
+    const m=state.menus.find(x=>x.id===state.editingMenuId); Object.assign(m,{name,price,items});
+    toast('메뉴를 수정했습니다'); cancelEditMenu();
+  } else {
+    state.menus.push({id:uid(),name,price,items}); toast(name+' 저장됨'); clearMenuForm();
+  }
+  renderMenuList(); renderMenuResult();
+}
+function clearMenuForm(){ document.getElementById('menuName').value=''; document.getElementById('menuPrice').value=''; document.getElementById('itemRows').innerHTML=''; addItemRow(); }
+function editMenu(id){
+  const m=state.menus.find(x=>x.id===id);
+  state.editingMenuId=id;
+  document.getElementById('menuName').value=m.name;
+  document.getElementById('menuPrice').value=m.price;
+  document.getElementById('itemRows').innerHTML='';
+  m.items.forEach(it=>addItemRow(it.ingredientId,it.amount,it.unit));
+  document.getElementById('menuFormTitle').textContent='메뉴 수정';
+  document.getElementById('menuSaveBtn').innerHTML='<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg>변경사항 저장';
+  document.getElementById('menuCancelBtn').style.display='flex';
+  renderMenuResult();
+  window.scrollTo({top:0,behavior:'smooth'});
+}
+function cancelEditMenu(){
+  state.editingMenuId=null; clearMenuForm();
+  document.getElementById('menuFormTitle').textContent='메뉴 구성';
+  document.getElementById('menuSaveBtn').innerHTML='<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg>메뉴 저장';
+  document.getElementById('menuCancelBtn').style.display='none';
+  renderMenuResult();
+}
+function deleteMenu(id){ state.menus=state.menus.filter(m=>m.id!==id); renderMenuList(); renderDash(); toast('메뉴를 삭제했습니다'); }
+function renderMenuList(){
+  document.getElementById('cnt-menu').textContent=state.menus.length;
+  const wrap=document.getElementById('menuListWrap');
+  if(!state.menus.length){ wrap.innerHTML=emptyBlock('cup','저장된 메뉴가 없습니다','위에서 메뉴를 구성해 저장하세요'); return; }
+  wrap.innerHTML='<div class="reclist">'+state.menus.map(m=>{
+    const rate=menuRate(m), over=rate*100>state.threshold;
+    return `<div class="rec" onclick="editMenu('${m.id}')">
+      <div class="rbody">
+        <div class="rname">${esc(m.name)}</div>
+        <div class="rmeta">판매가 ${won(m.price)}원</div>
+      </div>
+      <div class="rright">
+        <div class="rbig" style="color:${over?'var(--warn)':'var(--kiwi)'}">${pct(rate)}%</div>
+        <div class="rbiglabel">원가율</div>
+      </div>
+      <button class="iconbtn" onclick="event.stopPropagation();deleteMenu('${m.id}')"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6"/></svg></button>
+    </div>`;
+  }).join('')+'</div>';
+}
+
+/* ============ DASHBOARD ============ */
+function setSort(s){ state.sort=s; document.querySelectorAll('.sortbtn').forEach(b=>b.classList.toggle('on',b.dataset.sort===s)); renderDash(); }
+function renderDash(){
+  const sum=document.getElementById('dashSum'), wrap=document.getElementById('dashListWrap');
+  if(!state.menus.length){ sum.innerHTML=''; wrap.innerHTML=emptyBlock('bar','비교할 메뉴가 없습니다','메뉴 탭에서 메뉴를 저장해보세요'); return; }
+  const data=state.menus.map(m=>({m,rate:menuRate(m),cost:menuCost(m)}));
+  const avg=data.reduce((s,d)=>s+d.rate,0)/data.length;
+  const overCount=data.filter(d=>d.rate*100>state.threshold).length;
+  const best=data.reduce((a,b)=>a.rate<b.rate?a:b);
+  sum.innerHTML=`
+    <div class="stat"><div class="sl">등록 메뉴</div><div class="sv">${data.length}<span class="su">개</span></div></div>
+    <div class="stat"><div class="sl">평균 원가율</div><div class="sv ${avg*100>state.threshold?'warn':'good'}">${pct(avg)}<span class="su">%</span></div></div>
+    <div class="stat"><div class="sl">경고선 초과</div><div class="sv ${overCount?'warn':''}">${overCount}<span class="su">개</span></div></div>
+    <div class="stat"><div class="sl">최고 효율</div><div class="sv good" style="font-size:15px">${esc(best.m.name)}</div><div class="sl" style="margin:5px 0 0">원가율 ${pct(best.rate)}%</div></div>`;
+  data.sort((a,b)=>{ if(state.sort==='cost')return b.rate-a.rate; if(state.sort==='margin')return a.rate-b.rate; return a.m.name.localeCompare(b.m.name,'ko'); });
+  const maxRate=Math.max(...data.map(d=>d.rate),state.threshold/100)*1.05;
+  wrap.innerHTML=data.map(d=>{
+    const over=d.rate*100>state.threshold;
+    const fillW=Math.min(d.rate/maxRate*100,100), markW=Math.min(state.threshold/100/maxRate*100,100);
+    const wi=over?'<span class="warnicon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M10.29 3.86 1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg></span>':'';
+    return `<div class="drec ${over?'over':''}">
+      <div class="dtop"><div class="dname">${wi}${esc(d.m.name)}</div><div class="drate">${pct(d.rate)}%</div></div>
+      <div class="ratebar"><div class="fill" style="width:${fillW}%"></div><div class="mark" style="left:${markW}%"></div></div>
+      <div class="dgrid">
+        <div class="dcell"><div class="dcl">판매가</div><div class="dcv">${won(d.m.price)}</div></div>
+        <div class="dcell"><div class="dcl">재료원가</div><div class="dcv">${won(d.cost)}</div></div>
+        <div class="dcell"><div class="dcl">매출총이익</div><div class="dcv" style="color:var(--kiwi)">${won(d.m.price-d.cost)}</div></div>
+      </div>
+    </div>`;
+  }).join('');
+}
+
+/* ============ EMPTY ============ */
+function emptyBlock(icon,big,sub){
+  const icons={circle:'<circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/>',cup:'<path d="M18 8h1a4 4 0 0 1 0 8h-1"/><path d="M2 8h16v9a4 4 0 0 1-4 4H6a4 4 0 0 1-4-4V8z"/>',bar:'<line x1="18" y1="20" x2="18" y2="10"/><line x1="12" y1="20" x2="12" y2="4"/><line x1="6" y1="20" x2="6" y2="14"/>'};
+  return `<div class="empty"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">${icons[icon]}</svg><div class="big">${big}</div><p>${sub}</p></div>`;
+}
+
+/* ============ EXPORT / IMPORT ============ */
+function exportJSON(){ download(new Blob([JSON.stringify(state,null,2)],{type:'application/json'}),`카페원가_${today()}.json`); toast('JSON 파일을 저장했습니다'); }
+function exportCSV(){
+  let rows=[['구분','이름','단위','구매량','구매가격','가식부','수율(%)','실단가','판매가','재료원가','원가율(%)','마진율(%)','매출총이익']];
+  state.ingredients.forEach(ing=>rows.push(['재료',ing.name,ing.unit,ing.buyAmt,ing.buyPrice,ing.netAmt,pct(yieldOf(ing)),unitCost(ing).toFixed(2),'','','','','']));
+  state.menus.forEach(m=>{ const c=menuCost(m),r=menuRate(m); rows.push(['메뉴',m.name,'','','','','','',m.price,Math.round(c),pct(r),pct(1-r),Math.round(m.price-c)]); });
+  const csv='\uFEFF'+rows.map(r=>r.map(cell=>{ const s=String(cell); return /[",\n]/.test(s)?'"'+s.replace(/"/g,'""')+'"':s; }).join(',')).join('\n');
+  download(new Blob([csv],{type:'text/csv;charset=utf-8'}),`카페원가_${today()}.csv`); toast('CSV 파일을 내보냈습니다');
+}
+function importJSON(e){
+  const file=e.target.files[0]; if(!file)return;
+  const reader=new FileReader();
+  reader.onload=ev=>{ try{ const data=JSON.parse(ev.target.result); if(!data.ingredients||!data.menus)throw new Error(); state.threshold=data.threshold||35; state.ingredients=data.ingredients; state.menus=data.menus; document.getElementById('threshInput').value=state.threshold; renderAll(); toast('데이터를 불러왔습니다'); }catch(err){ toast('불러오기 실패: 올바른 형식이 아닙니다'); } e.target.value=''; };
+  reader.readAsText(file);
+}
+function download(blob,name){ const url=URL.createObjectURL(blob); const a=document.createElement('a'); a.href=url; a.download=name; a.click(); setTimeout(()=>URL.revokeObjectURL(url),1000); }
+function today(){ const d=new Date(); return d.getFullYear()+String(d.getMonth()+1).padStart(2,'0')+String(d.getDate()).padStart(2,'0'); }
+
+/* ============ INIT ============ */
+function renderAll(){ renderIngredients(); renderMenuList(); clearMenuForm(); renderMenuResult(); renderDash(); }
+renderAll();
+</script>
+</body>
+</html>
